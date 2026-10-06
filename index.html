@@ -1,0 +1,314 @@
+<!doctype html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>MemoMe – tekst uit je hoofd leren</title>
+<link rel="manifest" href='data:application/manifest+json,{"name":"MemoMe","short_name":"MemoMe","start_url":".","display":"standalone","background_color":"%23111827","theme_color":"%23111827","icons":[]}' />
+<style>
+  :root{
+    --bg:#0f172a; --panel:#1e293b; --panel2:#16213a; --text:#e2e8f0; --dim:#64748b;
+    --accent:#38bdf8; --accent2:#a78bfa; --line:#2b3b55; --ok:#34d399;
+    font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);min-height:100vh}
+  header{position:sticky;top:0;z-index:10;background:rgba(15,23,42,.92);backdrop-filter:blur(6px);
+    border-bottom:1px solid var(--line);padding:10px 16px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+  header h1{font-size:1.15rem;margin:0;font-weight:800;letter-spacing:.5px}
+  header h1 span{color:var(--accent)}
+  .cc{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;
+    border-radius:7px;font-size:.95rem;color:#06263a;background:var(--accent);font-weight:900;margin-right:-4px}
+  .cc.c2{background:var(--accent2);color:#1b1035;margin-right:8px}
+  .progress{flex:1;min-width:120px;height:8px;background:var(--panel2);border-radius:99px;overflow:hidden}
+  .progress i{display:block;height:100%;background:linear-gradient(90deg,var(--accent),var(--accent2));width:0;transition:width .3s}
+  .pct{font-size:.8rem;color:var(--dim);min-width:38px;text-align:right}
+  .btn{background:var(--panel);border:1px solid var(--line);color:var(--text);padding:6px 12px;border-radius:8px;cursor:pointer;font-size:.85rem}
+  .btn:hover{border-color:var(--accent);color:var(--accent)}
+  .btn.active{border-color:var(--accent);color:var(--accent)}
+  main{max-width:760px;margin:0 auto;padding:24px 16px 120px}
+  .hint{color:var(--dim);font-size:.8rem;text-align:center;margin:6px 0 18px}
+  .hint kbd{background:var(--panel);border:1px solid var(--line);border-radius:5px;padding:1px 6px;font-family:inherit}
+
+  .block{background:var(--panel);border:1px solid var(--line);border-left:4px solid transparent;
+    border-radius:12px;padding:16px 18px;margin:14px 0;cursor:pointer;transition:.15s;opacity:.45}
+  .block:hover{opacity:.75}
+  .block.active{opacity:1;border-left-color:var(--accent);background:var(--panel2);box-shadow:0 0 0 1px var(--accent2) inset}
+  .block.done{opacity:.35}
+  .block p{margin:0 0 12px;line-height:1.85;font-size:1.02rem}
+  .sentence{display:block;padding:6px 10px;border-radius:8px;transition:.12s;line-height:1.7}
+  .sentence.sel{background:rgba(56,189,248,.16);outline:1px solid rgba(56,189,248,.4)}
+  .sentence .u{color:var(--dim);letter-spacing:1px}
+  .sentence.hidden-s .w{color:transparent;text-shadow:0 0 10px rgba(226,232,240,.55)}
+  .done-mark{color:var(--ok);font-size:.75rem;margin-bottom:8px;display:block}
+  .block-title{color:var(--accent2);font-size:.8rem;font-weight:700;text-transform:uppercase;
+    letter-spacing:1.5px;margin-bottom:10px;display:block}
+  .chordline{display:block;padding:6px 10px;border-radius:8px;transition:.12s;line-height:1.7;
+    font-family:ui-monospace,Menlo,Consolas,monospace;color:var(--accent);letter-spacing:2px;font-size:.95rem}
+  .chordline.sel{background:rgba(56,189,248,.16);outline:1px solid rgba(56,189,248,.4)}
+
+  /* editor */
+  #editor{position:fixed;inset:0;background:rgba(5,10,20,.8);backdrop-filter:blur(4px);display:none;
+    align-items:center;justify-content:center;padding:20px;z-index:50}
+  #editor.open{display:flex}
+  .edbox{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:20px;width:min(680px,100%)}
+  .edbox h2{margin:0 0 6px;font-size:1rem}
+  .edbox p{color:var(--dim);font-size:.8rem;margin:0 0 12px}
+  textarea{width:100%;height:45vh;background:var(--panel2);color:var(--text);border:1px solid var(--line);
+    border-radius:10px;padding:12px;font:inherit;resize:vertical}
+  textarea:focus{outline:none;border-color:var(--accent)}
+  .edactions{display:flex;gap:10px;justify-content:flex-end;margin-top:12px}
+  .btn.primary{background:var(--accent);color:#06263a;border-color:var(--accent);font-weight:700}
+
+  .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%) translateY(80px);
+    background:var(--panel);border:1px solid var(--accent);padding:10px 18px;border-radius:10px;
+    transition:.3s;opacity:0;z-index:60;font-size:.9rem}
+  .toast.show{transform:translateX(-50%) translateY(0);opacity:1}
+  .empty{text-align:center;color:var(--dim);margin-top:12vh}
+  .empty h2{color:var(--text)}
+  .footer{position:fixed;bottom:0;left:0;right:0;background:rgba(15,23,42,.92);border-top:1px solid var(--line);
+    padding:8px 16px;display:flex;gap:8px;justify-content:center;flex-wrap:wrap;z-index:9}
+  .modechip{font-size:.78rem;color:var(--dim);align-self:center}
+  .modechip b{color:var(--accent)}
+  @media(max-width:600px){ .hint .desk{display:none} }
+</style>
+</head>
+<body>
+
+<header>
+  <h1><span class="cc">M</span><span class="cc c2">M</span> MemoMe</h1>
+  <div class="progress"><i id="bar"></i></div>
+  <div class="pct" id="pct">0%</div>
+  <button class="btn" id="btnEdit">✏️ Tekst</button>
+  <button class="btn" id="btnHelp">⌨️</button>
+</header>
+
+<main>
+  <div id="view"></div>
+</main>
+
+<div class="footer">
+  <span class="modechip">Modus: <b id="modeLabel">volledig</b></span>
+  <button class="btn" id="btnModeFull">→ Volledig</button>
+  <button class="btn" id="btnModeFirst">Eerste letters</button>
+  <button class="btn" id="btnModeHidden">Verborgen</button>
+  <button class="btn" id="btnSpeak">🔊 Voorlezen</button>
+</div>
+
+<div id="editor">
+  <div class="edbox">
+    <h2>Jouw tekst om in te studeren</h2>
+    <p>Scheid blokken met een lege regel, of markeer ze met <b>[Titel]</b>. Akkoorden op een eigen regel blijven intact (bijv. <b>Am&nbsp;&nbsp;C&nbsp;&nbsp;G</b>).</p>
+    <textarea id="ta" placeholder="Plak hier je tekst...&#10;&#10;[Couplet 1]&#10;Am   C   G&#10;Hier komt je tekst...&#10;&#10;[Refrein]&#10;Meer tekst..."></textarea>
+    <div class="edactions">
+      <button class="btn" id="btnCancel">Annuleren</button>
+      <button class="btn primary" id="btnSave">Opslaan &amp; studeren</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+(function(){
+  const LS_TEXT='clozecall.text', LS_POS='clozecall.pos';
+
+  // veilige storage (sandbox/preview kan localStorage blokkeren)
+  const store={
+    get(k){ try{ return localStorage.getItem(k); }catch(e){ return null; } },
+    set(k,v){ try{ localStorage.setItem(k,v); }catch(e){} }
+  };
+  let paras=[], actP=0, actS=0, mode='full'; // 'full' | 'first' | 'hidden'
+  let done=new Set();
+
+  const view=document.getElementById('view'), bar=document.getElementById('bar'),
+        pct=document.getElementById('pct'), modeLabel=document.getElementById('modeLabel'),
+        ta=document.getElementById('ta'), editor=document.getElementById('editor'),
+        toast=document.getElementById('toast');
+
+  function showToast(msg){ toast.textContent=msg; toast.classList.add('show');
+    setTimeout(()=>toast.classList.remove('show'),1800); }
+
+  // ---------- parsing ----------
+  // steunnootnamen: internationaal (C, Am, G7...) én Nederlands (As, Bes, Es, Fis, Cis, Gis, Dis, Ais)
+  const NOTE='(?:[A-G](?:es|is)?|[Bb](?:es)?)'; // C, D, ..., Ces, Cis, Bes, Bb
+  const CHORD=new RegExp('^'+NOTE+'[#b]?(?:maj|min|m|M|sus|dim|aug|add)?[0-9]*(?:/'+NOTE+'[#b]?)?$');
+  function isChordLine(line){
+    const w=line.split(/\s+/).filter(Boolean);
+    return w.length>0 && w.every(x=>CHORD.test(x)) && (w.length>1 || w[0].length>1);
+  }
+  function splitSentences(p){
+    const s=p.replace(/\s+/g,' ').trim();
+    if(!s) return [];
+    return s.split(/(?<=[.!?…])\s+/).filter(Boolean);
+  }
+  // blok-model: {title, items:[{t:'s'|'c', text}]}
+  //  - [Titel] op een regel = nieuw blok met titel
+  //  - akkoordenregel (alleen akkoorden) = eigen regel-item
+  //  - overige tekst wordt in zinnen gesplitst
+  function parse(text){
+    const blocks=[]; let cur=null, buf=[];
+    const flushBuf=()=>{ if(!buf.length) return; if(!cur) cur={title:'',items:[]};
+      // elke geplakte regel apart houden: zinnen binnen een regel splitsen,
+      // maar regels nooit aan elkaar plakken
+      buf.forEach(line=>{ const s=line.replace(/\s+/g,' ').trim();
+        splitSentences(s).forEach(x=>cur.items.push({t:'s',text:x})); });
+      buf=[]; };
+    const flush=()=>{ flushBuf(); if(cur){ if(cur.items.length) blocks.push(cur); else if(!cur.title) cur=null; } }; // leeg [Titel]-blok behouden
+    for(const raw of text.split(/\r?\n/)){
+      const line=raw.trim();
+      const m=line.match(/^\[(.+)\]$/);
+      if(m){ flush(); cur={title:m[1],items:[]}; continue; }
+      if(!line){ flush(); continue; }
+      if(isChordLine(line)){ flushBuf(); if(!cur) cur={title:'',items:[]};
+        cur.items.push({t:'c',text:line}); continue; }
+      buf.push(line);
+    }
+    flush();
+    return blocks;
+  }
+
+  // ---------- rendering ----------
+  function wordHTML(word, reveal){
+    if(reveal==='full') return `<span class="w">${esc(word)}</span>`;
+    if(reveal==='first'){
+      const letters=word.split('');
+      const keep=[...letters].map(c=>/[A-Za-z0-9À-ÿ]/.test(c)).indexOf(true);
+      let out='';
+      letters.forEach((c,i)=>{ out += i===keep ? `<b>${esc(c)}</b>` : (c===' '?' ':`<span class="u">${/[\p{L}\p{N}]/u.test(c)?'_':esc(c)}</span>`); });
+      return `<span class="w">${out}</span>`;
+    }
+    return `<span class="w">${esc(word)}</span>`; // hidden handled by CSS class
+  }
+  function esc(s){return s.replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
+
+  function render(){
+    if(!paras.length){
+      view.innerHTML=`<div class="empty"><h2>Geen tekst gevonden</h2>
+        <p>Klik op <b>✏️ Tekst</b> om je tekst in te voeren en te beginnen met studeren.</p></div>`;
+      updateProgress(); return;
+    }
+    let html='';
+    paras.forEach((block,pi)=>{
+      const items=block.items;
+      const isActive=pi===actP, isDone=items.every((_,si)=>done.has(pi+'-'+si));
+      if(isActive){
+        let inner=block.title?`<span class="block-title">${esc(block.title)}</span>`:'';
+        items.forEach((it,si)=>{
+          const cls=(it.t==='c'?'chordline':'sentence')+(si===actS?' sel':'')+((it.t!=='c'&&mode==='hidden')?' hidden-s':'');
+          if(it.t==='c'){
+            inner+=`<span class="${cls}" data-p="${pi}" data-s="${si}">${esc(it.text)}</span>`;
+          }else{
+            const words=it.text.split(' ');
+            inner+=`<span class="${cls}" data-p="${pi}" data-s="${si}">${words.map(w=>wordHTML(w,mode)).join(' ')}</span>`;
+          }
+        });
+        html+=`<section class="block active" data-p="${pi}">${isDone?'<span class="done-mark">✓ alinea onder de knie</span>':''}${inner}</section>`;
+      }else{
+        const dim=isDone?' done':'';
+        const title=block.title?`<span class="block-title">${esc(block.title)}</span>`:'';
+        const body=items.map(it=>it.t==='c'
+          ?`<span class="chordline">${esc(it.text)}</span>`
+          :`<p>${esc(it.text)}</p>`).join('');
+        html+=`<section class="block${dim}" data-p="${pi}">${title}${body}</section>`;
+      }
+    });
+    view.innerHTML=html;
+    // scroll active sentence into view
+    const sel=view.querySelector('.sentence.sel');
+    if(sel) sel.scrollIntoView({block:'center',behavior:'smooth'});
+    updateProgress();
+  }
+
+  function updateProgress(){
+    const total=paras.reduce((a,b)=>a+b.items.length,0)||1;
+    const p=Math.round(100*done.size/total);
+    bar.style.width=p+'%'; pct.textContent=p+'%';
+    modeLabel.textContent=mode==='full'?'volledig':mode==='first'?'eerste letters':'verborgen';
+  }
+
+  function setMode(m){ mode=m; render();
+    if(m==='first') showToast('Eerste letters – vul de rest zelf in!'); }
+
+  // ---------- navigation ----------
+  function next(){
+    if(!paras.length) return;
+    markDone();
+    if(actS < paras[actP].items.length-1) actS++;
+    else if(actP < paras.length-1){ actP++; actS=0; }
+    render();
+  }
+  function prev(){
+    if(!paras.length) return;
+    if(actS>0) actS--;
+    else if(actP>0){ actP--; actS=paras[actP].items.length-1; }
+    render();
+  }
+  function markDone(){ done.add(actP+'-'+actS); }
+  function jump(p,s){ if(!paras[p])return; actP=p; actS=Math.min(s??0,paras[p].items.length-1); render(); }
+
+  // ---------- input ----------
+  document.addEventListener('keydown',e=>{
+    if(editor.classList.contains('open')) return;
+    if(e.target.tagName==='TEXTAREA') return;
+    switch(e.key){
+      case 'ArrowDown': e.preventDefault(); next(); break;
+      case 'ArrowUp': e.preventDefault(); prev(); break;
+      case 'ArrowLeft': e.preventDefault(); setMode('first'); break;
+      case 'ArrowRight': e.preventDefault(); setMode('full'); break;
+      case 'h': case 'H': setMode(mode==='hidden'?'full':'hidden'); break;
+      case 'r': case 'R': speak(); break;
+      case 'e': case 'E': openEditor(); break;
+    }
+  });
+  view.addEventListener('click',e=>{
+    const s=e.target.closest('.sentence');
+    if(s){ jump(+s.dataset.p,+s.dataset.s); return; }
+    const b=e.target.closest('.block');
+    if(b) jump(+b.dataset.p,0);
+  });
+
+  // ---------- speech ----------
+  function speak(){
+    if(!paras.length) return;
+    const it=paras[actP].items[actS];
+    if(!it || it.t!=='s') return;
+    const u=new SpeechSynthesisUtterance(it.text);
+    u.lang='nl-NL'; u.rate=.95;
+    speechSynthesis.cancel(); speechSynthesis.speak(u);
+  }
+
+  // ---------- editor ----------
+  function openEditor(){ ta.value=rawText; editor.classList.add('open'); setTimeout(()=>ta.focus(),50); }
+  const btns=([['btnModeFull','full'],['btnModeFirst','first'],['btnModeHidden','hidden']]);
+  btns.forEach(([id,m])=>document.getElementById(id).onclick=()=>setMode(m));
+  document.getElementById('btnSpeak').onclick=speak;
+  document.getElementById('btnEdit').onclick=openEditor;
+  document.getElementById('btnHelp').onclick=()=>showToast('↓ ↑ zin • ← eerste letters • → volledig • H verberg • R lees voor • E tekst');
+  document.getElementById('btnCancel').onclick=()=>editor.classList.remove('open');
+  document.getElementById('btnSave').onclick=()=>{
+    rawText=ta.value; store.set(LS_TEXT,rawText);
+    paras=parse(rawText); done.clear(); actP=0; actS=0; mode='full';
+    editor.classList.remove('open'); render();
+    showToast('Tekst opgeslagen – succes met studeren! 💪');
+  };
+
+  // ---------- init ----------
+  let rawText=store.get(LS_TEXT)||'';
+  paras=parse(rawText);
+  const pos=(()=>{ try{ return JSON.parse(store.get(LS_POS)||'null'); }catch(e){ return null; } })();
+  if(pos && paras[pos.p]){ actP=pos.p; actS=pos.s; }
+  render();
+  // geen tekst? direct de tekst-dialoog openen
+  if(!paras.length) openEditor(); else if(!rawText) openEditor();
+  // save position as you go
+  setInterval(()=>store.set(LS_POS,JSON.stringify({p:actP,s:actS})),1500);
+
+  // PWA: registreer service worker zodra sw.js bestaat (GitHub Pages hosting)
+  if('serviceWorker' in navigator && location.protocol!=='blob:' && location.protocol!=='data:'){
+    navigator.serviceWorker.register('sw.js').catch(()=>{});
+  }
+})();
+</script>
+</body>
+</html>
