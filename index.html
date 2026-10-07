@@ -63,6 +63,8 @@
   textarea:focus{outline:none;border-color:var(--accent)}
   .edactions{display:flex;gap:10px;justify-content:flex-end;margin-top:12px}
   .btn.primary{background:var(--accent);color:#06263a;border-color:var(--accent);font-weight:700}
+  #linker{position:fixed;inset:0;background:rgba(5,10,20,.8);backdrop-filter:blur(4px);display:none;
+    align-items:center;justify-content:center;padding:20px;z-index:50}
   #linker input{width:100%;background:var(--panel2);color:var(--text);border:1px solid var(--line);
     border-radius:10px;padding:10px 12px;font:inherit}
   #linker input:focus{outline:none;border-color:var(--accent)}
@@ -118,7 +120,7 @@
   </div>
 </div>
 
-<div id="linker" class="open" style="display:none">
+<div id="linker" style="display:none">
   <div class="edbox">
     <h2>🔗 Link naar het liedje</h2>
     <p>Plak de URL van Spotify, YouTube, of waar je het liedje luistert. Daarna opent 🔊 Luisteren hem direct in een nieuw tabblad.</p>
@@ -135,7 +137,7 @@
 
 <script>
 (function(){
-  const VERSION='v1.3';
+  const VERSION='v1.4';
   const LS_TEXT='clozecall.text', LS_POS='clozecall.pos';
 
   // veilige storage (sandbox/preview kan localStorage blokkeren)
@@ -218,7 +220,7 @@
     let html='';
     paras.forEach((block,pi)=>{
       const items=block.items;
-      const isActive=pi===actP, isDone=items.every((_,si)=>done.has(pi+'-'+si));
+      const isActive=pi===actP && !collapsed.has(pi), isDone=items.every((_,si)=>done.has(pi+'-'+si));
       if(isActive){
         let inner=block.title?`<span class="block-title">${esc(block.title)}</span>`:'';
         items.forEach((it,si)=>{
@@ -232,22 +234,14 @@
         });
         html+=`<section class="block active" data-p="${pi}">${isDone?'<span class="done-mark">✓ alinea onder de knie</span>':''}${inner}</section>`;
       }else{
-        const dim=isDone?' done':'';
+        // accordeon: alle niet-actieve blokken compact (titel + akkoorden + 5 woorden)
         const title=block.title?`<span class="block-title">${esc(block.title)}</span>`:'';
-        let body;
-        if(collapsed.has(pi)){
-          // compacte voorbeeldweergave: akkoordenregel (indien eerste item) + eerste 5 woorden
-          const first=items[0];
-          const firstChord=first&&first.t==='c'?`<span class="chordline">${esc(first.text)}</span>`:'';
-          const firstSent=items.find(it=>it.t==='s');
-          const preview=firstSent?firstSent.text.split(' ').slice(0,5).join(' ')+' …':'';
-          body=firstChord+`<p class="preview">${esc(preview)}</p>`;
-        }else{
-          body=items.map(it=>it.t==='c'
-            ?`<span class="chordline">${esc(it.text)}</span>`
-            :`<p>${esc(it.text)}</p>`).join('');
-        }
-        html+=`<section class="block${dim}${collapsed.has(pi)?' collapsed':''}" data-p="${pi}">${title}${body}</section>`;
+        const first=items[0];
+        const firstChord=first&&first.t==='c'?`<span class="chordline">${esc(first.text)}</span>`:'';
+        const firstSent=items.find(it=>it.t==='s');
+        const preview=firstSent?firstSent.text.split(' ').slice(0,5).join(' ')+' …':'';
+        const body=firstChord+`<p class="preview">${esc(preview)}</p>`;
+        html+=`<section class="block${isDone?' done':''} collapsed" data-p="${pi}">${title}${body}</section>`;
       }
     });
     view.innerHTML=html;
@@ -287,7 +281,7 @@
   // ---------- input ----------
   document.addEventListener('keydown',e=>{
     if(editor.classList.contains('open')) return;
-    if(e.target.tagName==='TEXTAREA') return;
+    if(e.target.tagName==='TEXTAREA' || e.target.tagName==='INPUT') return;
     switch(e.key){
       case 'ArrowDown': e.preventDefault(); next(); break;
       case 'ArrowUp': e.preventDefault(); prev(); break;
@@ -303,9 +297,11 @@
     if(s){ jump(+s.dataset.p,+s.dataset.s); return; }
     const c=e.target.closest('.chordline');
     if(c){ jump(+c.dataset.p,+c.dataset.s); return; }
+    // overal elders in het blok: maximaliseren / minimaliseren (accordeon)
     const b=e.target.closest('.block');
     if(b){ const p=+b.dataset.p;
-      if(collapsed.has(p)) collapsed.delete(p); else collapsed.add(p);
+      if(p!==actP){ actP=p; actS=0; collapsed.delete(p); }
+      else if(collapsed.has(p)) collapsed.delete(p); else collapsed.add(p);
       render(); }
   });
 
