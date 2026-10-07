@@ -139,7 +139,7 @@
 
 <script>
 (function(){
-  const VERSION='v1.5';
+  const VERSION='v1.6';
   const LS_TEXT='clozecall.text', LS_POS='clozecall.pos';
 
   // veilige storage (sandbox/preview kan localStorage blokkeren)
@@ -234,7 +234,7 @@
             inner+=`<span class="${cls}" data-p="${pi}" data-s="${si}">${words.map(w=>wordHTML(w,mode)).join(' ')}</span>`;
           }
         });
-        html+=`<section class="block active" data-p="${pi}">${isDone?'<span class="done-mark">✓ alinea onder de knie</span>':''}${inner}</section>`;
+        html+=`<section class="block active" data-p="${pi}">${inner}</section>`;
       }else{
         // accordeon: alle niet-actieve blokken compact (titel + akkoorden + 5 woorden)
         const title=block.title?`<span class="block-title">${esc(block.title)}</span>`:'';
@@ -254,8 +254,8 @@
   }
 
   function updateProgress(){
-    const total=paras.reduce((a,b)=>a+b.items.length,0)||1;
-    const p=Math.round(100*done.size/total);
+    const total=paras.length||1;
+    const p=Math.round(100*(actP+1)/total);
     bar.style.width=p+'%'; pct.textContent=p+'%';
     modeLabel.textContent=mode==='full'?'volledig':mode==='first'?'eerste letters':'verborgen';
   }
@@ -266,15 +266,12 @@
   // ---------- navigation ----------
   function next(){
     if(!paras.length) return;
-    markDone();
-    if(actS < paras[actP].items.length-1) actS++;
-    else if(actP < paras.length-1){ actP++; actS=0; collapsed.delete(actP); }
+    if(actP < paras.length-1){ actP++; actS=0; collapsed.delete(actP); }
     render();
   }
   function prev(){
     if(!paras.length) return;
-    if(actS>0) actS--;
-    else if(actP>0){ actP--; actS=paras[actP].items.length-1; collapsed.delete(actP); }
+    if(actP>0){ actP--; actS=0; collapsed.delete(actP); }
     render();
   }
   function markDone(){ done.add(actP+'-'+actS); }

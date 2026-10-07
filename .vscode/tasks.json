@@ -2,9 +2,10 @@
   "version": "2.0.0",
   "tasks": [
     {
-      "label": "MemoMe download verplaatsen",
-      "type": "shell",
-      "command": "mv -v ~/Downloads/*[Mm]emo[Mm]e*.html ${workspaceFolder}/index.html"
+        "label": "MemoMe download verplaatsen",
+        "type": "shell",
+        "command": "mv -v ~/Downloads/*[Mm]emo[Mm]e*.html ${workspaceFolder}/index.html",
+        "problemMatcher": []
     }
-  ]
+]
 }
