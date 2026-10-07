@@ -88,6 +88,7 @@
   <div class="pct" id="pct">0%</div>
   <button class="btn" id="btnEdit">✏️ Tekst</button>
   <button class="btn" id="btnHelp">⌨️</button>
+  <span id="ver" title="versie" style="color:var(--dim);font-size:.7rem;align-self:center;cursor:pointer"></span>
 </header>
 
 <main>
@@ -134,6 +135,7 @@
 
 <script>
 (function(){
+  const VERSION='v1.3';
   const LS_TEXT='clozecall.text', LS_POS='clozecall.pos';
 
   // veilige storage (sandbox/preview kan localStorage blokkeren)
@@ -308,7 +310,6 @@
   });
 
   // ---------- liedje-link ----------
-  const linker=document.getElementById('linker'), linkInput=document.getElementById('linkInput');
   const LS_LINK='memome.link';
   function getLink(){ return store.get(LS_LINK)||''; }
   function openLinker(){ linkInput.value=getLink(); linker.style.display='flex'; setTimeout(()=>linkInput.focus(),50); }
@@ -389,7 +390,6 @@
   function openEditor(){ ta.value=rawText; pdfUrlInput.value=''; editor.classList.add('open'); setTimeout(()=>ta.focus(),50); }
   const btns=([['btnModeFull','full'],['btnModeFirst','first'],['btnModeHidden','hidden']]);
   btns.forEach(([id,m])=>document.getElementById(id).onclick=()=>setMode(m));
-  document.getElementById('btnSpeak').onclick=speak;
   document.getElementById('btnEdit').onclick=openEditor;
   document.getElementById('btnHelp').onclick=()=>showToast('↓ ↑ zin • ← eerste letters • → volledig • H verberg • R lees voor • E tekst • klik blok = inklappen');
   document.getElementById('btnCancel').onclick=()=>editor.classList.remove('open');
@@ -417,6 +417,10 @@
   if('serviceWorker' in navigator && location.protocol!=='blob:' && location.protocol!=='data:'){
     navigator.serviceWorker.register('sw.js').catch(()=>{});
   }
+  // versie tonen (klik = kopieer, zodat je weet welke versie live staat)
+  const verEl=document.getElementById('ver');
+  verEl.textContent=VERSION;
+  verEl.onclick=()=>{ try{ navigator.clipboard.writeText('MemoMe '+VERSION); showToast('MemoMe '+VERSION+' gekopieerd'); }catch(e){ showToast('MemoMe '+VERSION); } };
 })();
 </script>
 </body>
