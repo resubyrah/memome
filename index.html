@@ -139,7 +139,7 @@
 
 <script>
 (function(){
-  const VERSION='v1.6';
+  const VERSION='v1.8';
   const LS_TEXT='clozecall.text', LS_POS='clozecall.pos';
 
   // veilige storage (sandbox/preview kan localStorage blokkeren)
@@ -179,6 +179,8 @@
   //  - overige tekst wordt in zinnen gesplitst
   function parse(text){
     const blocks=[]; let cur=null, buf=[];
+    // normaliseer regeleinden: \r\n en losse \r (Android-kopieerplak!), en onzichtbare spaties
+    const lines=text.replace(/\r\n?/g,'\n').replace(/[\u00A0\u2007\u202F]/g,' ').split('\n');
     const flushBuf=()=>{ if(!buf.length) return; if(!cur) cur={title:'',items:[]};
       // elke geplakte regel apart houden: zinnen binnen een regel splitsen,
       // maar regels nooit aan elkaar plakken
@@ -186,7 +188,7 @@
         splitSentences(s).forEach(x=>cur.items.push({t:'s',text:x})); });
       buf=[]; };
     const flush=()=>{ flushBuf(); if(cur){ if(cur.items.length) blocks.push(cur); else if(!cur.title) cur=null; } }; // leeg [Titel]-blok behouden
-    for(const raw of text.split(/\r?\n/)){
+    for(const raw of lines){
       const line=raw.trim();
       const m=line.match(/^\[(.+)\]$/);
       if(m){ flush(); cur={title:m[1],items:[]}; continue; }
@@ -292,16 +294,14 @@
     }
   });
   view.addEventListener('click',e=>{
-    const s=e.target.closest('.sentence');
-    if(s){ jump(+s.dataset.p,+s.dataset.s); return; }
-    const c=e.target.closest('.chordline');
-    if(c){ jump(+c.dataset.p,+c.dataset.s); return; }
-    // overal elders in het blok: maximaliseren / minimaliseren (accordeon)
+    // élke klik in het blok: maximaliseren / minimaliseren (accordeon)
     const b=e.target.closest('.block');
-    if(b){ const p=+b.dataset.p;
-      if(p!==actP){ actP=p; actS=0; collapsed.delete(p); }
-      else if(collapsed.has(p)) collapsed.delete(p); else collapsed.add(p);
-      render(); }
+    if(!b) return;
+    const p=+b.dataset.p;
+    if(p!==actP){ actP=p; actS=0; collapsed.delete(p); }   // ander blok: openen
+    else if(collapsed.has(p)) collapsed.delete(p);          // actief maar dicht: openen
+    else collapsed.add(p);                                  // actief en open: sluiten
+    render();
   });
 
   // ---------- liedje-link ----------
