@@ -41,6 +41,10 @@
   .sentence .u{color:var(--dim);letter-spacing:1px}
   .sentence.hidden-s .w{color:transparent;text-shadow:0 0 10px rgba(226,232,240,.55)}
   .done-mark{color:var(--ok);font-size:.75rem;margin-bottom:8px;display:block}
+  .block.collapsed{padding:10px 14px}
+  .block.collapsed p{margin:4px 0 0;color:var(--dim);font-size:.9rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .block.collapsed .chordline{font-size:.8rem;letter-spacing:1px;padding:2px 0}
+  .preview{color:var(--dim)}
   .block-title{color:var(--accent2);font-size:.8rem;font-weight:700;text-transform:uppercase;
     letter-spacing:1.5px;margin-bottom:10px;display:block}
   .chordline{display:block;padding:6px 10px;border-radius:8px;transition:.12s;line-height:1.7;
@@ -59,6 +63,9 @@
   textarea:focus{outline:none;border-color:var(--accent)}
   .edactions{display:flex;gap:10px;justify-content:flex-end;margin-top:12px}
   .btn.primary{background:var(--accent);color:#06263a;border-color:var(--accent);font-weight:700}
+  #linker input{width:100%;background:var(--panel2);color:var(--text);border:1px solid var(--line);
+    border-radius:10px;padding:10px 12px;font:inherit}
+  #linker input:focus{outline:none;border-color:var(--accent)}
 
   .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%) translateY(80px);
     background:var(--panel);border:1px solid var(--accent);padding:10px 18px;border-radius:10px;
@@ -92,7 +99,8 @@
   <button class="btn" id="btnModeFull">→ Volledig</button>
   <button class="btn" id="btnModeFirst">Eerste letters</button>
   <button class="btn" id="btnModeHidden">Verborgen</button>
-  <button class="btn" id="btnSpeak">🔊 Voorlezen</button>
+  <button class="btn" id="btnSpeak">🔊 Luisteren</button>
+  <button class="btn" id="btnLinkEdit" title="Link naar het liedje bewerken">🔗✏️</button>
 </div>
 
 <div id="editor">
@@ -100,9 +108,24 @@
     <h2>Jouw tekst om in te studeren</h2>
     <p>Scheid blokken met een lege regel, of markeer ze met <b>[Titel]</b>. Akkoorden op een eigen regel blijven intact (bijv. <b>Am&nbsp;&nbsp;C&nbsp;&nbsp;G</b>).</p>
     <textarea id="ta" placeholder="Plak hier je tekst...&#10;&#10;[Couplet 1]&#10;Am   C   G&#10;Hier komt je tekst...&#10;&#10;[Refrein]&#10;Meer tekst..."></textarea>
+    <p style="margin-top:12px">Of plak een link naar een <b>PDF</b> (Google Drive-deellink of directe URL) — de tekst wordt automatisch uitgelezen:</p>
+    <input id="pdfUrl" type="url" style="width:100%;background:var(--panel2);color:var(--text);border:1px solid var(--line);border-radius:10px;padding:10px 12px;font:inherit" placeholder="https://drive.google.com/file/d/... of https://.../tekst.pdf" />
     <div class="edactions">
       <button class="btn" id="btnCancel">Annuleren</button>
       <button class="btn primary" id="btnSave">Opslaan &amp; studeren</button>
+    </div>
+  </div>
+</div>
+
+<div id="linker" class="open" style="display:none">
+  <div class="edbox">
+    <h2>🔗 Link naar het liedje</h2>
+    <p>Plak de URL van Spotify, YouTube, of waar je het liedje luistert. Daarna opent 🔊 Luisteren hem direct in een nieuw tabblad.</p>
+    <input id="linkInput" type="url" placeholder="https://open.spotify.com/track/..." />
+    <div class="edactions">
+      <button class="btn" id="btnLinkClear">Verwijderen</button>
+      <button class="btn" id="btnLinkCancel">Annuleren</button>
+      <button class="btn primary" id="btnLinkSave">Opslaan</button>
     </div>
   </div>
 </div>
@@ -119,12 +142,14 @@
     set(k,v){ try{ localStorage.setItem(k,v); }catch(e){} }
   };
   let paras=[], actP=0, actS=0, mode='full'; // 'full' | 'first' | 'hidden'
-  let done=new Set();
+  let done=new Set(), collapsed=new Set();
 
   const view=document.getElementById('view'), bar=document.getElementById('bar'),
         pct=document.getElementById('pct'), modeLabel=document.getElementById('modeLabel'),
         ta=document.getElementById('ta'), editor=document.getElementById('editor'),
-        toast=document.getElementById('toast');
+        pdfUrlInput=document.getElementById('pdfUrl'),
+        toast=document.getElementById('toast'), linker=document.getElementById('linker'),
+        linkInput=document.getElementById('linkInput');
 
   function showToast(msg){ toast.textContent=msg; toast.classList.add('show');
     setTimeout(()=>toast.classList.remove('show'),1800); }
@@ -207,10 +232,20 @@
       }else{
         const dim=isDone?' done':'';
         const title=block.title?`<span class="block-title">${esc(block.title)}</span>`:'';
-        const body=items.map(it=>it.t==='c'
-          ?`<span class="chordline">${esc(it.text)}</span>`
-          :`<p>${esc(it.text)}</p>`).join('');
-        html+=`<section class="block${dim}" data-p="${pi}">${title}${body}</section>`;
+        let body;
+        if(collapsed.has(pi)){
+          // compacte voorbeeldweergave: akkoordenregel (indien eerste item) + eerste 5 woorden
+          const first=items[0];
+          const firstChord=first&&first.t==='c'?`<span class="chordline">${esc(first.text)}</span>`:'';
+          const firstSent=items.find(it=>it.t==='s');
+          const preview=firstSent?firstSent.text.split(' ').slice(0,5).join(' ')+' …':'';
+          body=firstChord+`<p class="preview">${esc(preview)}</p>`;
+        }else{
+          body=items.map(it=>it.t==='c'
+            ?`<span class="chordline">${esc(it.text)}</span>`
+            :`<p>${esc(it.text)}</p>`).join('');
+        }
+        html+=`<section class="block${dim}${collapsed.has(pi)?' collapsed':''}" data-p="${pi}">${title}${body}</section>`;
       }
     });
     view.innerHTML=html;
@@ -235,17 +270,17 @@
     if(!paras.length) return;
     markDone();
     if(actS < paras[actP].items.length-1) actS++;
-    else if(actP < paras.length-1){ actP++; actS=0; }
+    else if(actP < paras.length-1){ actP++; actS=0; collapsed.delete(actP); }
     render();
   }
   function prev(){
     if(!paras.length) return;
     if(actS>0) actS--;
-    else if(actP>0){ actP--; actS=paras[actP].items.length-1; }
+    else if(actP>0){ actP--; actS=paras[actP].items.length-1; collapsed.delete(actP); }
     render();
   }
   function markDone(){ done.add(actP+'-'+actS); }
-  function jump(p,s){ if(!paras[p])return; actP=p; actS=Math.min(s??0,paras[p].items.length-1); render(); }
+  function jump(p,s){ if(!paras[p])return; actP=p; actS=Math.min(s??0,paras[p].items.length-1); collapsed.delete(p); render(); }
 
   // ---------- input ----------
   document.addEventListener('keydown',e=>{
@@ -264,9 +299,34 @@
   view.addEventListener('click',e=>{
     const s=e.target.closest('.sentence');
     if(s){ jump(+s.dataset.p,+s.dataset.s); return; }
+    const c=e.target.closest('.chordline');
+    if(c){ jump(+c.dataset.p,+c.dataset.s); return; }
     const b=e.target.closest('.block');
-    if(b) jump(+b.dataset.p,0);
+    if(b){ const p=+b.dataset.p;
+      if(collapsed.has(p)) collapsed.delete(p); else collapsed.add(p);
+      render(); }
   });
+
+  // ---------- liedje-link ----------
+  const linker=document.getElementById('linker'), linkInput=document.getElementById('linkInput');
+  const LS_LINK='memome.link';
+  function getLink(){ return store.get(LS_LINK)||''; }
+  function openLinker(){ linkInput.value=getLink(); linker.style.display='flex'; setTimeout(()=>linkInput.focus(),50); }
+  function playOrAskLink(){
+    const url=getLink();
+    if(url){ window.open(url,'_blank'); return; }
+    openLinker();
+  }
+  document.getElementById('btnSpeak').onclick=playOrAskLink;
+  document.getElementById('btnLinkEdit').onclick=openLinker;
+  document.getElementById('btnLinkCancel').onclick=()=>linker.style.display='none';
+  document.getElementById('btnLinkClear').onclick=()=>{ store.set(LS_LINK,''); linker.style.display='none'; showToast('Link verwijderd'); };
+  document.getElementById('btnLinkSave').onclick=()=>{
+    const v=linkInput.value.trim();
+    if(!v){ linker.style.display='none'; return; }
+    store.set(LS_LINK,v); linker.style.display='none';
+    showToast('Link opgeslagen – 🔊 opent nu het liedje 🎵');
+  };
 
   // ---------- speech ----------
   function speak(){
@@ -278,15 +338,64 @@
     speechSynthesis.cancel(); speechSynthesis.speak(u);
   }
 
+  // ---------- PDF-import ----------
+  function loadScript(src){ return new Promise((res,rej)=>{ const s=document.createElement('script');
+    s.src=src; s.onload=res; s.onerror=()=>rej(new Error('script load failed')); document.head.appendChild(s); }); }
+  function driveDirectUrl(url){
+    const m=url.match(/drive\.google\.com\/file\/d\/([^/]+)/);
+    if(m) return 'https://drive.google.com/uc?export=download&id='+m[1];
+    return url;
+  }
+  async function pdfToText(url){
+    if(!window.pdfjsLib){
+      await loadScript('https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js');
+      window.pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    }
+    const doc=await window.pdfjsLib.getDocument({url:driveDirectUrl(url)}).promise;
+    const out=[];
+    for(let i=1;i<=doc.numPages;i++){
+      const page=await doc.getPage(i);
+      const tc=await page.getTextContent();
+      // groepeer tekstfragmenten per tekstregel (op y-positie) om regeleinden te behouden
+      const lines=[];
+      tc.items.forEach(it=>{
+        const y=Math.round(it.transform[5]);
+        const last=lines[lines.length-1];
+        if(!last || Math.abs(last.y-y)>2) lines.push({y,text:it.str});
+        else last.text+=it.str;
+      });
+      lines.sort((a,b)=>b.y-a.y).forEach(l=>out.push(l.text));
+      out.push(''); // pagina-einde = nieuwe alinea
+    }
+    return out.join('\n');
+  }
+  async function importPdf(url){
+    try{
+      showToast('PDF uitlezen…');
+      const text=await pdfToText(url.trim());
+      if(!text.trim()){ showToast('Geen tekst in deze PDF gevonden'); return false; }
+      rawText=text; store.set(LS_TEXT,rawText);
+      paras=parse(rawText); done.clear(); collapsed.clear(); actP=0; actS=0; mode='full';
+      editor.classList.remove('open'); render();
+      showToast('Tekst uit PDF geladen – succes met studeren! 💪');
+      return true;
+    }catch(e){
+      showToast('PDF uitlezen mislukt (link publiek? CORS?)');
+      return false;
+    }
+  }
+
   // ---------- editor ----------
-  function openEditor(){ ta.value=rawText; editor.classList.add('open'); setTimeout(()=>ta.focus(),50); }
+  function openEditor(){ ta.value=rawText; pdfUrlInput.value=''; editor.classList.add('open'); setTimeout(()=>ta.focus(),50); }
   const btns=([['btnModeFull','full'],['btnModeFirst','first'],['btnModeHidden','hidden']]);
   btns.forEach(([id,m])=>document.getElementById(id).onclick=()=>setMode(m));
   document.getElementById('btnSpeak').onclick=speak;
   document.getElementById('btnEdit').onclick=openEditor;
-  document.getElementById('btnHelp').onclick=()=>showToast('↓ ↑ zin • ← eerste letters • → volledig • H verberg • R lees voor • E tekst');
+  document.getElementById('btnHelp').onclick=()=>showToast('↓ ↑ zin • ← eerste letters • → volledig • H verberg • R lees voor • E tekst • klik blok = inklappen');
   document.getElementById('btnCancel').onclick=()=>editor.classList.remove('open');
-  document.getElementById('btnSave').onclick=()=>{
+  document.getElementById('btnSave').onclick=async ()=>{
+    const pdfUrl=pdfUrlInput.value.trim();
+    if(pdfUrl){ const ok=await importPdf(pdfUrl); if(ok) return; }
     rawText=ta.value; store.set(LS_TEXT,rawText);
     paras=parse(rawText); done.clear(); actP=0; actS=0; mode='full';
     editor.classList.remove('open'); render();
