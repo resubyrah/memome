@@ -31,18 +31,19 @@
   .hint kbd{background:var(--panel);border:1px solid var(--line);border-radius:5px;padding:1px 6px;font-family:inherit}
 
   .block{background:var(--panel);border:1px solid var(--line);border-left:4px solid transparent;
-    border-radius:12px;padding:16px 18px;margin:14px 0;cursor:pointer;transition:.15s;opacity:.45}
-  .block:hover{opacity:.75}
+    border-radius:12px;padding:16px 18px;margin:14px 0;cursor:pointer;transition:.15s;opacity:.85}
+  .block:hover{opacity:1}
   .block.active{opacity:1;border-left-color:var(--accent);background:var(--panel2);box-shadow:0 0 0 1px var(--accent2) inset}
-  .block.done{opacity:.35}
+  .block.done{opacity:.45}
+  .block.done.collapsed{opacity:.6}
   .block p{margin:0 0 12px;line-height:1.85;font-size:1.02rem}
   .sentence{display:block;padding:6px 10px;border-radius:8px;transition:.12s;line-height:1.7}
   .sentence.sel{background:rgba(56,189,248,.16);outline:1px solid rgba(56,189,248,.4)}
   .sentence .u{color:var(--dim);letter-spacing:1px}
   .sentence.hidden-s .w{color:transparent;text-shadow:0 0 10px rgba(226,232,240,.55)}
   .done-mark{color:var(--ok);font-size:.75rem;margin-bottom:8px;display:block}
-  .block.collapsed{padding:10px 14px}
-  .block.collapsed p{margin:4px 0 0;color:var(--dim);font-size:.9rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .block.collapsed{padding:10px 14px;opacity:1}
+  .block.collapsed p{margin:4px 0 0;color:var(--text);font-size:.9rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;opacity:.8}
   .block.collapsed .chordline{font-size:.8rem;letter-spacing:1px;padding:2px 0}
   .preview{color:var(--dim)}
   .block-title{color:var(--accent2);font-size:.8rem;font-weight:700;text-transform:uppercase;
@@ -90,6 +91,7 @@
   <div class="pct" id="pct">0%</div>
   <button class="btn" id="btnEdit">✏️ Tekst</button>
   <button class="btn" id="btnHelp">⌨️</button>
+  <button class="btn" id="btnRefresh" title="Laatste versie ophalen (cache legen)">🔄</button>
   <span id="ver" title="versie" style="color:var(--dim);font-size:.7rem;align-self:center;cursor:pointer"></span>
 </header>
 
@@ -137,7 +139,7 @@
 
 <script>
 (function(){
-  const VERSION='v1.4';
+  const VERSION='v1.5';
   const LS_TEXT='clozecall.text', LS_POS='clozecall.pos';
 
   // veilige storage (sandbox/preview kan localStorage blokkeren)
@@ -417,6 +419,22 @@
   const verEl=document.getElementById('ver');
   verEl.textContent=VERSION;
   verEl.onclick=()=>{ try{ navigator.clipboard.writeText('MemoMe '+VERSION); showToast('MemoMe '+VERSION+' gekopieerd'); }catch(e){ showToast('MemoMe '+VERSION); } };
+
+  // ---------- verversen (SW-cache legen + herladen) ----------
+  document.getElementById('btnRefresh').onclick=async ()=>{
+    showToast('Nieuwste versie ophalen…');
+    try{
+      if('serviceWorker' in navigator){
+        const regs=await navigator.serviceWorker.getRegistrations();
+        await Promise.all(regs.map(r=>r.unregister()));
+      }
+      if(window.caches){
+        const keys=await caches.keys();
+        await Promise.all(keys.map(k=>caches.delete(k)));
+      }
+    }catch(e){}
+    setTimeout(()=>location.reload(true),300);
+  };
 })();
 </script>
 </body>
